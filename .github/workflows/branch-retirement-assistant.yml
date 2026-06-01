@@ -29,6 +29,7 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           BRANCH_RETIREMENT_MODEL: ${{ vars.BRANCH_RETIREMENT_MODEL || 'google/gemini-3.1-flash-lite' }}
           DELETE_ENABLED: ${{ inputs.delete_enabled || vars.BRANCH_RETIREMENT_DELETE_ENABLED || 'false' }}
+          PR_NUMBER: ${{ inputs.pr_number || '' }}
         with:
           script: |
             const marker = '<!-- branch-retirement-assistant -->';
@@ -49,7 +50,7 @@ jobs:
                 return context.payload.pull_request;
               }
 
-              const rawPrNumber = core.getInput('pr_number');
+              const rawPrNumber = process.env.PR_NUMBER || context.payload.inputs?.pr_number || '';
               if (!rawPrNumber) {
                 core.notice('workflow_dispatch skipped: provide a pr_number input to inspect a merged PR.');
                 return null;
