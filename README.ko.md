@@ -274,6 +274,7 @@ pnpm schemas        # Zod 정의에서 JSON Schema 내보내기
 | 버그 | [버그 리포트 템플릿](.github/ISSUE_TEMPLATE/bug_report.md) |
 | 아키텍처 | [RFC 템플릿](.github/ISSUE_TEMPLATE/rfc.md) |
 | 코드/문서 | [CONTRIBUTING.ko.md](CONTRIBUTING.ko.md) · [docs/git-workflow.ko.md](docs/git-workflow.ko.md) |
+| 브랜치 정책 | [docs/branch-retirement-policy.md](docs/branch-retirement-policy.md) — 머지 후 PR 브랜치 은퇴 기준 |
 
 이슈 템플릿은 [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE)에서 확인하세요.
 

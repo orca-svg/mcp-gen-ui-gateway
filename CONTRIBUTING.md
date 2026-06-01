@@ -60,7 +60,8 @@ Accepted RFCs are recorded under [`docs/adr/`](docs/adr/) as numbered Architectu
 - PR title follows Conventional Commits: `feat(scope): ...`, `fix(scope): ...`, `docs: ...`, `chore: ...`, `refactor(scope): ...`.
 - Add appropriate labels: one of `bug` / `enhancement` / `documentation` / `architecture`, plus `role:?` (A/B/C) and `stage:N` when applicable.
 - Squash and merge is the default merge strategy; keep commit history clean before merge.
-- Do not push to `main` directly; do not force-push shared branches.
+- Do not push to `main` or `pretotype/genui-demo` directly; do not force-push shared branches.
+- After squash-merge, delete the remote PR branch unless it is a long-lived branch (`main`, `pretotype/genui-demo`, `release/*`, `support/*`). See [docs/branch-retirement-policy.md](docs/branch-retirement-policy.md).
 
 ## Commit Messages
 

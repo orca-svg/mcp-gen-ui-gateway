@@ -68,7 +68,8 @@ pnpm mcp        # stdio MCP 서버 실행
 - PR 제목은 Conventional Commits 형식을 따릅니다: `feat(scope): ...`, `fix(scope): ...`, `docs: ...`, `chore: ...`, `refactor(scope): ...`
 - 적절한 라벨을 추가합니다: `bug` / `enhancement` / `documentation` / `architecture` 중 하나, 그리고 해당하면 `role:?` (A/B/C)와 `stage:N`.
 - 기본 머지 전략은 Squash and merge입니다; 머지 전 커밋 이력을 깔끔하게 유지합니다.
-- `main`에 직접 push하거나 공유 브랜치에 force-push하지 않습니다.
+- `main`이나 `pretotype/genui-demo`에 직접 push하거나 공유 브랜치에 force-push하지 않습니다.
+- squash-merge 후에는 장기 브랜치(`main`, `pretotype/genui-demo`, `release/*`, `support/*`)가 아닌 한 원격 PR 브랜치를 삭제합니다. [docs/branch-retirement-policy.md](docs/branch-retirement-policy.md)를 참고하세요.
 
 ---
 

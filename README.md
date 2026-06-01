@@ -275,6 +275,7 @@ Bug reports, feature proposals, architecture RFCs, code, and documentation contr
 | Bug | [Bug report template](.github/ISSUE_TEMPLATE/bug_report.md) |
 | Architecture | [RFC template](.github/ISSUE_TEMPLATE/rfc.md) |
 | Code | [CONTRIBUTING.md](CONTRIBUTING.md) · [docs/git-workflow.md](docs/git-workflow.md) |
+| Branch policy | [docs/branch-retirement-policy.md](docs/branch-retirement-policy.md) — when PR branches are retired after merge |
 | 한국어 기여 | [CONTRIBUTING.ko.md](CONTRIBUTING.ko.md) · [docs/git-workflow.ko.md](docs/git-workflow.ko.md) |
 
 See the issue templates under [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE).

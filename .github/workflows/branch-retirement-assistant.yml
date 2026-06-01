@@ -1,0 +1,229 @@
+name: Branch retirement assistant
+
+on:
+  pull_request_target:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to inspect
+        required: true
+      delete_enabled:
+        description: Enable actual branch deletion when all checks pass
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: read
+
+jobs:
+  branch-retirement:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide branch retirement
+        uses: actions/github-script@v7
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          BRANCH_RETIREMENT_MODEL: ${{ vars.BRANCH_RETIREMENT_MODEL || 'google/gemini-3.1-flash-lite' }}
+          DELETE_ENABLED: ${{ inputs.delete_enabled || vars.BRANCH_RETIREMENT_DELETE_ENABLED || 'false' }}
+        with:
+          script: |
+            const marker = '<!-- branch-retirement-assistant -->';
+            const protectedPatterns = ['main', 'pretotype/genui-demo', 'release/*', 'support/*'];
+            const keepLabels = new Set(['keep-branch', 'do-not-delete-branch']);
+
+            function matchesProtected(branch) {
+              return protectedPatterns.some((pattern) => {
+                if (pattern.endsWith('/*')) {
+                  return branch.startsWith(pattern.slice(0, -1));
+                }
+                return branch === pattern;
+              });
+            }
+
+            async function loadPullRequest() {
+              if (context.payload.pull_request) {
+                return context.payload.pull_request;
+              }
+
+              const prNumber = Number(core.getInput('pr_number'));
+              if (!Number.isInteger(prNumber) || prNumber <= 0) {
+                throw new Error('workflow_dispatch requires a positive pr_number input.');
+              }
+
+              const { data } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              });
+              return data;
+            }
+
+            async function listOpenPulls(params) {
+              const pulls = await github.paginate(github.rest.pulls.list, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100,
+                ...params,
+              });
+              return pulls;
+            }
+
+            async function branchExists(branch) {
+              try {
+                await github.rest.git.getRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${branch}`,
+                });
+                return true;
+              } catch (error) {
+                if (error.status === 404) return false;
+                throw error;
+              }
+            }
+
+            async function draftWithOpenRouter(decision) {
+              if (!process.env.OPENROUTER_API_KEY) {
+                return null;
+              }
+
+              const prompt = `Draft a concise GitHub PR comment for maintainers. Do not add new facts. Explain the branch-retirement decision from this JSON. Keep it under 120 words.\n\n${JSON.stringify(decision, null, 2)}`;
+
+              try {
+                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': `https://github.com/${context.repo.owner}/${context.repo.repo}`,
+                    'X-Title': 'mcp-gen-ui-gateway branch retirement assistant',
+                  },
+                  body: JSON.stringify({
+                    model: process.env.BRANCH_RETIREMENT_MODEL || 'google/gemini-3.1-flash-lite',
+                    messages: [
+                      {
+                        role: 'system',
+                        content: 'You summarize deterministic CI evidence. You never override safety gates.',
+                      },
+                      { role: 'user', content: prompt },
+                    ],
+                  }),
+                });
+
+                if (!response.ok) {
+                  core.warning(`OpenRouter returned ${response.status}; using deterministic comment.`);
+                  return null;
+                }
+
+                const payload = await response.json();
+                return payload?.choices?.[0]?.message?.content?.trim() || null;
+              } catch (error) {
+                core.warning(`OpenRouter comment drafting failed: ${error.message}`);
+                return null;
+              }
+            }
+
+            async function upsertComment(prNumber, body) {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              });
+
+              const previous = comments.find((comment) =>
+                comment.user?.type === 'Bot' && comment.body?.includes(marker),
+              );
+
+              if (previous) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: previous.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body,
+                });
+              }
+            }
+
+            const pr = await loadPullRequest();
+            const headBranch = pr.head.ref;
+            const baseBranch = pr.base.ref;
+            const sameRepoHead = pr.head.repo?.full_name === pr.base.repo?.full_name;
+            const labels = (pr.labels || []).map((label) => label.name);
+            const keepLabel = labels.some((label) => keepLabels.has(label));
+            const protectedBranch = matchesProtected(headBranch);
+            const exists = sameRepoHead ? await branchExists(headBranch) : false;
+
+            const openSameHead = sameRepoHead
+              ? await listOpenPulls({ head: `${context.repo.owner}:${headBranch}` })
+              : [];
+            const openUsesAsBase = await listOpenPulls({ base: headBranch });
+
+            const checks = {
+              merged: Boolean(pr.merged),
+              same_repo_head: sameRepoHead,
+              branch_exists: exists,
+              protected_branch: protectedBranch,
+              open_pr_same_head: openSameHead.length > 0,
+              open_pr_uses_branch_as_base: openUsesAsBase.length > 0,
+              keep_label: keepLabel,
+            };
+
+            const safeToDelete =
+              checks.merged &&
+              checks.same_repo_head &&
+              checks.branch_exists &&
+              !checks.protected_branch &&
+              !checks.open_pr_same_head &&
+              !checks.open_pr_uses_branch_as_base &&
+              !checks.keep_label;
+
+            const deleteEnabled = String(process.env.DELETE_ENABLED || 'false').toLowerCase() === 'true';
+            const decisionKind = safeToDelete ? (deleteEnabled ? 'delete' : 'comment-only') : 'hold';
+            const reason = safeToDelete
+              ? `merged into ${baseBranch}, no open stacked PRs, no keep label, branch is temporary`
+              : 'branch is not safe for automatic deletion; maintainer review required';
+
+            const decision = {
+              branch: headBranch,
+              base: baseBranch,
+              pr: pr.number,
+              decision: decisionKind,
+              delete_enabled: deleteEnabled,
+              deterministic_checks: checks,
+              reason,
+            };
+
+            core.info(JSON.stringify(decision, null, 2));
+
+            const aiSummary = await draftWithOpenRouter(decision);
+            const summary = aiSummary || (safeToDelete
+              ? `This PR branch is safe to retire: ${reason}.`
+              : `Holding branch retirement: ${reason}.`);
+
+            const body = `${marker}\n## Branch retirement assistant\n\n${summary}\n\n\`\`\`json\n${JSON.stringify(decision, null, 2)}\n\`\`\``;
+            await upsertComment(pr.number, body);
+
+            if (decisionKind === 'delete') {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${headBranch}`,
+              });
+              core.notice(`Deleted branch ${headBranch}.`);
+            } else if (safeToDelete) {
+              core.notice(`Dry run: ${headBranch} is safe to delete.`);
+            } else {
+              core.notice(`Hold: ${headBranch} is not safe to auto-delete.`);
+            }

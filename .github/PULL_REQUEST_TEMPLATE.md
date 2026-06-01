@@ -23,3 +23,8 @@ Closes #
 ## Notes for reviewers
 
 <!-- Anything the reviewer should pay special attention to. -->
+
+## Branch retirement
+
+- [ ] This branch can be deleted after merge.
+- [ ] Keep this branch after merge because: <!-- only for stacked/release/support branches -->

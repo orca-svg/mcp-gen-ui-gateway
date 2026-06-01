@@ -108,6 +108,20 @@ git rebase origin/main        # or git merge origin/main
 
 ---
 
+## Branch retirement
+
+Only `main` and `pretotype/genui-demo` are long-lived; `release/*` and `support/*` are reserved for documented release and maintenance branches. Every other branch is a temporary PR branch.
+
+Once a PR is squash-merged, its branch has served its purpose:
+
+- Delete the remote branch via GitHub's "Delete branch" button or `git push origin --delete <branch>`.
+- Locally, run `git fetch --prune` then `git branch -d <branch>`.
+- Do not push to `main` or `pretotype/genui-demo` directly, and never force-push shared branches.
+
+A guarded GitHub Action (`.github/workflows/branch-retirement-assistant.yml`) assists this in **comment-only mode by default**: it posts a retirement decision on closed PRs and deletes nothing unless deletion is explicitly enabled. The full criteria — automatic-deletion gates, human-review holds, and opt-out labels (`keep-branch` / `do-not-delete-branch`) — are the single source of truth in [branch-retirement-policy.md](branch-retirement-policy.md).
+
+---
+
 ## Local Hygiene
 
 - Delete generated/temporary screenshots after verification; do not commit them.

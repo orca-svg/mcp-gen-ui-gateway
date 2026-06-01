@@ -108,6 +108,20 @@ git rebase origin/main        # 또는 git merge origin/main
 
 ---
 
+## 브랜치 은퇴
+
+장기 브랜치는 `main`과 `pretotype/genui-demo`뿐이며, `release/*`·`support/*`는 문서화된 릴리스·유지보수 브랜치용으로 예약돼 있습니다. 그 외 브랜치는 모두 임시 PR 브랜치입니다.
+
+PR이 squash-merge되면 그 브랜치의 목적은 끝납니다:
+
+- GitHub의 "Delete branch" 버튼 또는 `git push origin --delete <branch>`로 원격 브랜치를 삭제합니다.
+- 로컬에서는 `git fetch --prune` 후 `git branch -d <branch>`로 정리합니다.
+- `main`이나 `pretotype/genui-demo`에 직접 push하지 않으며, 공유 브랜치에 force-push하지 않습니다.
+
+가드레일이 적용된 GitHub Action(`.github/workflows/branch-retirement-assistant.yml`)이 이를 **기본 comment-only 모드**로 돕습니다: 닫힌 PR에 은퇴 판단을 코멘트로 남기고, 삭제가 명시적으로 활성화되지 않는 한 아무것도 삭제하지 않습니다. 자동 삭제 기준, 사람 확인 hold, opt-out 라벨(`keep-branch` / `do-not-delete-branch`)을 포함한 전체 기준의 정식 출처(SoT)는 [branch-retirement-policy.md](branch-retirement-policy.md)입니다.
+
+---
+
 ## 로컬 위생
 
 - 생성된 임시 스크린샷은 확인 후 삭제합니다; 커밋하지 않습니다.
