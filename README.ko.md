@@ -1,19 +1,22 @@
 <div align="center">
   <h1>MCP Gen UI Gateway</h1>
-  <p><strong>MCP와 Matrix 채점 엔진으로 구동되는 맥락 인식 공공서비스 UI</strong></p>
+  <p><strong>Claude Desktop을 위한 맥락 인식 공공서비스 GenUI — 프리토타입 단계의 MCP 프로젝트</strong></p>
 
   <a href="https://github.com/koi2026/mcp-gen-ui-gateway/actions/workflows/ci.yml"><img src="https://github.com/koi2026/mcp-gen-ui-gateway/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></a>
   <a href="https://pnpm.io"><img src="https://img.shields.io/badge/pnpm-9-orange.svg" alt="pnpm"></a>
   <img src="https://img.shields.io/badge/TypeScript-5-blue?logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/status-pretotype-orange" alt="Status: Pretotype">
   <a href="README.md"><img src="https://img.shields.io/badge/README-English-blue" alt="English"></a>
 </div>
 
 ---
 
-**MCP Gen UI Gateway**는 오픈소스 [MCP(Model Context Protocol)](https://modelcontextprotocol.io) 서버입니다. 여러 한국 공공서비스 데이터 소스를 연결하고, 7차원 의도 벡터로 사용자 맥락을 파악하며, Matrix 채점 알고리즘으로 정보를 순위화해 개인화된 **GenUI(Generated UI)** 화면을 렌더링합니다 — 추가 인프라 없이 Claude Desktop 안에서 바로 동작합니다.
+**MCP Gen UI Gateway**는 한국 공공서비스를 위한 맥락 인식 **GenUI(Generated UI)** — Claude HTML Artifact로 렌더링되며 추가 인프라가 필요 없는 — 를 향해 나아가는 오픈소스 [MCP(Model Context Protocol)](https://modelcontextprotocol.io) 프로젝트입니다.
 
-> **현재 상태:** 프리토타입 단계 (2026년 6월). 현재 릴리즈는 3개 고정 페르소나 시나리오로 Claude → MCP → GenUI Artifact 파이프라인 전 과정을 시연합니다. 실시간 데이터 랭킹을 포함한 완전한 게이트웨이는 `main` 브랜치에서 개발 중입니다.
+아직 **초기 단계**입니다. 지금 직접 실행하고 확인할 수 있는 것은 [`pretotype/genui-demo`](https://github.com/koi2026/mcp-gen-ui-gateway/tree/pretotype/genui-demo) 브랜치의 **동작하는 프리토타입**입니다 — 3개 고정 페르소나 시나리오로 `Claude → MCP → GenUI Artifact` 전 과정을 실증합니다. `main` 자체는 게이트웨이 도구의 초기·미검증 **G-1 MVP**를 담고 있습니다. 맥락 랭킹 "Matrix" 엔진, 실시간 공공데이터 소스, Federation은 **[로드맵](#로드맵)** — 설계 의도이지 출시된 기능이 아닙니다.
+
+> **현재 상태 — 프리토타입 단계 (2026-06).** 실행 가능한 데모는 **`pretotype/genui-demo`** 브랜치에 있습니다(Stage 0, 고정 아티팩트). `main`은 게이트웨이 트랙 골격 — `schema` · `core` · `mcp-server`(G-1 MVP, 검증 대기) — 을 담습니다. Stage 0 이후의 모든 것(Matrix 채점, 실시간 소스, Federation)은 설계 의도입니다. 기능 존재를 가정하기 전에 [지금 동작하는 것](#지금-동작하는-것)과 [로드맵](#로드맵)을 읽으세요.
 
 **[English README →](README.md)**
 
@@ -23,17 +26,33 @@
 
 한국 공공서비스는 수십 개의 포털(정부24, 홈택스, data.go.kr, 법령정보원)에 분산되어 있습니다. 이사를 처음 가는 신혼부부, 프리랜서, 박사후연구원 모두 같은 근본 문제에 직면합니다: 같은 정보가 존재하지만 **무엇이 중요하고 무엇을 먼저 해야 하는지는 맥락에 따라 완전히 다릅니다**.
 
-MCP Gen UI Gateway는 세 가지 아이디어로 이 문제를 해결합니다:
+게이트웨이는 세 가지 아이디어를 중심으로 설계되고 있습니다:
 
-| 문제 | 우리의 접근법 |
-|------|-------------|
+| 문제 | 지향하는 접근법 |
+|------|----------------|
 | 수많은 포털, 과도한 인지 부하 | MCP 도구 한 번의 호출로 사용자 상황에 맞는 컴포넌트만 반환 |
-| 규칙 기반 필터링은 새 페르소나마다 폭발적으로 증가 | Matrix 채점 알고리즘 $O(i,c) = \sum_f S(i,f) \times W(f,c)$으로 모든 맥락에 일반화 |
+| 규칙 기반 필터링은 새 페르소나마다 폭발적으로 증가 | Matrix 채점 알고리즘 $O(i,c) = \sum_f S(i,f) \times W(f,c)$으로 모든 맥락에 일반화 *(로드맵: G-2)* |
 | GenUI 화면은 신뢰할 수 있는 출처가 필요 | 모든 렌더링 블록이 공식 정부 API 또는 문서를 명시 |
+
+프리토타입은 고정 콘텐츠로 그 아이디어의 **전달 경로와 사용감**을 증명합니다. 콘텐츠를 동적으로 선택하는 두뇌는 지금은 의도적으로 동결되어 있습니다 — [로드맵](#로드맵)을 보세요.
 
 ---
 
-## 동작 원리
+## 지금 동작하는 것
+
+정직한 인벤토리 — 실제로 실행되는 것 대 아직 설계 의도인 것.
+
+- ✅ **프리토타입 — Stage 0** *(브랜치: `pretotype/genui-demo`)* — exact-tag 라우팅(`[신혼부부]` / `[프리랜서]` / `[박사후연구원]`)이 3개 고정 self-contained HTML 아티팩트 중 하나를 반환하고, Claude Artifact로 그대로 열립니다. 회귀 동결 기준선입니다. 같은 브랜치는 **추가적 실험 슬라이스**(handoff 출처 검증, 규칙 기반 맥락 랭킹, `GenUIResponse` 봉투 + 동적 렌더러)도 담고 있으나 — 단위 테스트된 탐색일 뿐 출시된 게이트웨이가 아닙니다.
+- ⚙️ **게이트웨이 G-1 MVP** *(브랜치: `main`)* — `schema` / `core` / `mcp-server`의 스키마 기반 MCP 도구 + Zod 계약 + SQLite 저장소. 구현은 됐으나 **검증·정리 대기** 상태입니다.
+- 🚧 **그 외 모든 것** — Matrix 채점 엔진, 실시간 공공데이터 소스, Federation, React 소비자 렌더러 — 은 **로드맵**이며 아직 만들어지지 않았습니다.
+
+이 줄 아래의 모든 내용은 이미 동작하는 것이 아니라 **프로젝트가 나아갈 방향**을 설명합니다.
+
+---
+
+## 비전: 완전한 게이트웨이의 동작 방식
+
+> 이것은 **목표 아키텍처**입니다. Stage 0 프리토타입은 이 랭킹 엔진을 *동결*하고 대신 exact-tag로 라우팅합니다 — 실시간 오케스트레이션이 존재하기 전에 엔드투엔드 Artifact 경로를 증명하기 위함입니다.
 
 ```
 사용자 발화
@@ -47,7 +66,7 @@ MCP Gen UI Gateway는 세 가지 아이디어로 이 문제를 해결합니다:
            │
            ▼
 ┌──────────────────────┐
-│   Matrix 채점기       │  O(i,c) = Σ S(i,f) × W(f,c)
+│   Matrix 채점기       │  O(i,c) = Σ S(i,f) × W(f,c)   ← 로드맵 (G-2)
 │   (core 패키지)       │  rankComponentCandidates(vector, pool)
 └──────────┬───────────┘
            │  상위 k개 컴포넌트 선택
@@ -62,7 +81,7 @@ MCP Gen UI Gateway는 세 가지 아이디어로 이 문제를 해결합니다:
    (정부24 스타일 UI)
 ```
 
-### Matrix 알고리즘
+### Matrix 알고리즘 (목표 설계)
 
 $$O(i,c) = \sum_f S(i,f) \times W(f,c)$$
 
@@ -74,34 +93,21 @@ $$O(i,c) = \sum_f S(i,f) \times W(f,c)$$
 | `S(i, f)` | 의도 `i`가 피처 `f`를 활성화하는 강도 |
 | `W(f, c)` | 피처 `f`가 컴포넌트 `c`에 기여하는 가중치 |
 
-**상위 k개 O(i, c)**가 화면에 표시될 컴포넌트를 결정하고, 나머지는 숨겨집니다.
-
-이로써 규칙 폭발을 제거합니다. 새로운 페르소나나 도메인 추가는 **가중치 벡터** 하나면 되고, 수백 개의 IF-THEN 규칙이 필요하지 않습니다.
-
----
-
-## 주요 특징
-
-- 🏗 **스키마 기반 MCP 도구** — Zod 검증 I/O 계약 + JSON Schema 내보내기; AI 호스트가 도구 응답 형태를 신뢰 가능
-- 📐 **Matrix 채점 엔진** — 하드코딩 없는 맥락 인식 컴포넌트 랭킹; 가중치 벡터 교체만으로 어떤 도메인에도 확장 가능
-- 🪪 **페르소나 적응형 UI** — 같은 프롬프트, 같은 5-블록 팔레트, 세 가지 최적화된 UI (신혼부부 / 프리랜서 / 박사후연구원)
-- 🏛 **정부 디자인 시스템** — [KRDS](https://uiux.epeople.go.kr)(한국 정부 디자인 시스템) 토큰 기반; gov.kr 포털과 시각적 일관성
-- 🔌 **MCP 네이티브 배포** — Claude Desktop에서 로컬 `stdio` MCP 서버로 실행; Vercel, 공개 URL 불필요
-- 🔍 **출처 투명성** — 모든 GenUI 블록이 공식 정부 API 또는 문서를 `evidence`·`sources` 필드로 명시
-- ✅ **엔드투엔드 타입 안전** — 모노레포 전체에 TypeScript 5 + Zod; `pnpm typecheck`로 스키마 드리프트를 머지 전에 포착
-- 🧪 **회귀 테스트된 아티팩트** — Vitest가 세 개 페르소나 HTML 파일 간 드리프트를 방지
+**상위 k개 O(i, c)**가 화면에 표시될 컴포넌트를 결정하고 나머지는 숨겨집니다. 핵심은 이것입니다: 새 페르소나나 도메인 추가가 수백 개의 IF-THEN 규칙이 아니라 새 **가중치 벡터** 하나가 됩니다. 이것은 로드맵의 **G-2** 마일스톤이며, 출시된 프리토타입에는 연결되어 있지 않습니다.
 
 ---
 
 ## 데모: 하나의 프롬프트, 세 개의 페르소나
 
-프리토타입은 핵심 개념을 보여줍니다: **같은 상황, 다른 최적 화면**.
+> **`pretotype/genui-demo`** 브랜치에서 실행됩니다([빠른 시작](#빠른-시작--claude-desktop-프리토타입) 참고).
+
+프리토타입은 **고정** 콘텐츠로 핵심 개념을 보여줍니다: *같은 상황, 다른 최적 화면*. 아래 차이는 작성된 것이지 아직 실시간 랭킹으로 생성된 것이 아닙니다 — 그것을 동적으로 만드는 것이 바로 로드맵입니다.
 
 **공통 프롬프트:**
 > `대전 유성구로 이사 왔어요. 이사 관련 행정·세무·우리 동네 데이터를 한 곳에서 확인하고 싶어요.`
 
-| 태그 | 페르소나 | GenUI 주요 내용 |
-|-----|---------|----------------|
+| 태그 | 페르소나 | 아티팩트 주요 내용 |
+|-----|---------|------------------|
 | `[신혼부부]` | 신혼부부 | 전세대출 현황, 전입신고, 아이행복카드 체크리스트 |
 | `[프리랜서]` | 프리랜서 | 사업장 주소 변경, 세금계산서 유효성, 건강보험 |
 | `[박사후연구원]` | 박사후연구원 | 소속기관 주소 변경, 연구비 이전 지원 |
@@ -109,6 +115,8 @@ $$O(i,c) = \sum_f S(i,f) \times W(f,c)$$
 ---
 
 ## 빠른 시작 — Claude Desktop (프리토타입)
+
+> 실행 가능한 프리토타입은 `main`이 아니라 **`pretotype/genui-demo`** 브랜치에 있습니다. 아래 클론 명령이 그 브랜치를 체크아웃합니다.
 
 ### 사전 요구사항
 
@@ -167,39 +175,60 @@ If the tag is missing or ambiguous, ask for exactly one of the three tags.
 [신혼부부] 대전 유성구로 이사 왔어요. 이사 관련 행정·세무·우리 동네 데이터를 한 곳에서 확인하고 싶어요.
 ```
 
-Claude가 신혼부부 페르소나에 맞는 정부24 스타일 HTML Artifact를 열어야 합니다. 자세한 설정은 [docs/claude-desktop-pretotype-connector.md](docs/claude-desktop-pretotype-connector.md)를 참고하세요.
+Claude가 정부24 스타일 HTML Artifact를 열어야 합니다. 클론한 `pretotype/genui-demo` 브랜치에는 전체 설정과 문제 해결을 담은 `docs/claude-desktop-pretotype-connector.md`가 포함되어 있습니다.
+
+---
+
+## 로드맵
+
+제품은 **버전마다 능력 하나씩** 성장합니다. 0.5와 0.6은 동일한 GenUI 렌더러를 공유하며 — *누가 데이터를 가져오는가*만 달라집니다:
+
+```text
+0.5   Claude (글루) ─► korean-law-mcp + pretotype-genui ─► GenUI Artifact
+0.6   Claude ─► gateway ─► korean-law-mcp ─► GenUI ─► Artifact
+```
+
+**0.5**에서는 Claude가 호스트 글루로서 두 형제 커넥터를 호출하고, **0.6**에서는 게이트웨이가 하위 MCP 서버를 직접 오케스트레이션하므로 Claude에게는 커넥터가 하나로 보입니다. (라이브 상태 보드와 도메인 용어집은 version-ladder 문서와 함께 활성 작업 브랜치에 있습니다.)
+
+| 버전 | 새로 더하는 능력 | 오케스트레이션 | 커넥터 | 상태 |
+|------|------------------|----------------|--------|------|
+| **0** | 고정 공공서비스 아티팩트 (컨텍스트 태그 3종) | — | pretotype | ✅ 출시 · 동결 |
+| **0.5** | korean-law `action_plan` 5단계 UX를 GenUI Artifact로 | Claude가 글루(호스트) | korean-law + pretotype-genui (2개) | 🔜 다음 |
+| **0.6** | **Federation** — 게이트웨이가 korean-law-mcp의 MCP *클라이언트*가 됨 | 게이트웨이 내부 | 게이트웨이 (1개) | ⬜ 예정 |
+| **G-1–4** | Ranking Pipeline 채점 · 멀티소스 · 배포 | 게이트웨이 | 1개 | ⬜ 예정 |
+
+- **"동결(Frozen)"**은 Stage 0 아티팩트 자체가 불변(회귀 기준선)임을 뜻합니다. 프리토타입 *가족*은 여전히 가산적으로 성장합니다(0.5, 0.6).
+- **Federation**이 "게이트웨이"라는 이름값을 합니다: 커넥터 하나가 하위 MCP 서버(korean-law-mcp 우선)의 API를 재구현하지 않고 재사용하여, 형제 커넥터끼리 서로 호출할 수 없는 호스트 한계를 넘어섭니다.
+- [비전](#비전-완전한-게이트웨이의-동작-방식)의 **Matrix 채점**은 Federation 위에 얹히는 **G-2** 단계입니다 — 0.5나 0.6의 일부가 아닙니다.
 
 ---
 
 ## 프로젝트 구조
 
+`main`은 게이트웨이 트랙입니다. 실행 가능한 프리토타입(고정 3-페르소나 아티팩트 + Vite React `demo-ui`)은 여기가 아니라 **`pretotype/genui-demo`** 브랜치에 있습니다.
+
 ```
-mcp-gen-ui-gateway/
+mcp-gen-ui-gateway/  (main 브랜치)
 ├── packages/
-│   ├── schema/            Zod 스키마 — 의도 타입, 컴포넌트 팔레트, MCP I/O 계약
-│   ├── core/              Matrix 채점 엔진 — S(i,f) × W(f,c), 컴포넌트 랭킹
-│   ├── mcp-server/        MCP 게이트웨이 — 스키마 기반 도구, SQLite 저장소
-│   ├── pretotype-server/  데모 프리토타입 — 고정 3-페르소나 HTML (throwaway)
-│   └── browser-assist/    브라우저 보조 도구 (gov24 실시간 연동용)
-├── apps/
-│   └── demo-ui/           Vite React — GenUI 블록 렌더러 + 정부24 스타일 UI
+│   ├── schema/         Zod 스키마 — 의도 타입, 컴포넌트 팔레트, MCP I/O 계약
+│   ├── core/           도구 서비스 + 초기 추천 스켈레톤 (G-1 MVP; Matrix는 G-2 예정)
+│   ├── mcp-server/     MCP 게이트웨이 엔트리포인트 — 도구 + SQLite 저장소 (G-1 MVP)
+│   └── browser-assist/ 실험적 Playwright 경계, core와 격리
 ├── docs/
-│   ├── adr/               아키텍처 결정 기록 (ADR)
-│   ├── git-workflow.md    브랜치 명명, 커밋 컨벤션, PR 규칙
-│   └── ...
-├── CONTRIBUTING.md        기여 가이드 (영어)
-├── CONTRIBUTING.ko.md     기여 가이드 (한국어)
+│   ├── git-workflow.md · git-workflow.ko.md   브랜치 명명, 커밋, PR 규칙
+│   ├── host-prompts.md                        호스트 지시문 변형
+│   └── prd.md                                 제품 요구사항
+├── CONTRIBUTING.md · CONTRIBUTING.ko.md
 ├── SECURITY.md
-└── LICENSE                Apache-2.0
+└── LICENSE                                    Apache-2.0
 ```
 
-| 패키지 | 책임 | 의존성 |
+| 패키지 | 책임 | 성숙도 |
 |--------|------|-------|
-| `schema` | Zod 타입 정의 + JSON Schema 내보내기 | — |
-| `core` | Matrix 채점, 외부 의존 없음, 단독 테스트 가능 | `schema` |
-| `mcp-server` | MCP 도구 등록, 소스 어댑터, SQLite 변경 로그 | `schema`, `core` |
-| `pretotype-server` | 고정 경로 데모 *(`main`에 병합 안 함)* | `schema` |
-| `demo-ui` | GenUI 렌더러 + KRDS 기반 정부24 컴포넌트 | `schema` |
+| `schema` | Zod 타입 정의 + JSON Schema 내보내기 | 지원 |
+| `core` | 도구 서비스 + 초기 추천 스켈레톤, 외부 의존 없음; Matrix는 G-2 예정 | G-1 MVP, 미검증 |
+| `mcp-server` | MCP 도구 등록, SQLite 변경 로그 | G-1 MVP, 미검증 |
+| `browser-assist` | 실험적 gov24 실시간 소스 경계 | 실험적, 격리 |
 
 ---
 
@@ -210,25 +239,29 @@ pnpm install        # 모든 워크스페이스 의존성 설치
 pnpm build          # 전체 빌드
 pnpm test           # 전체 테스트
 pnpm typecheck      # TypeScript 타입 검사
-pnpm dev            # 데모 UI 개발 서버 → http://localhost:5173
-pnpm mcp            # 메인 MCP 서버 실행 (stdio)
-pnpm pretotype:mcp  # 프리토타입 MCP 서버 실행 (stdio)
-pnpm pretotype:http # 프리토타입 HTTP 서버 실행 → :8787
+pnpm mcp            # 게이트웨이 MCP 서버 실행 (stdio)
 pnpm schemas        # Zod 정의에서 JSON Schema 내보내기
 ```
 
+> `dev`(React `demo-ui`)와 `pretotype:*` 스크립트는 해당 패키지가 위치한 **`pretotype/genui-demo`** 브랜치에서 실행됩니다.
+
 ---
 
-## 로드맵
+## MCP 도구
 
-| 단계 | 이름 | 상태 |
+`main`에서 `mcp-server`는 게이트웨이 G-1 MVP 도구를 등록합니다. 프리토타입 전용 도구는 `pretotype/genui-demo` 브랜치에 있습니다.
+
+| 도구 | 위치 | 상태 |
 |------|------|------|
-| 0 | 프리토타입 — Claude Desktop 데모 | ✅ 완료 |
-| 1 | 소스 계약 — `OfficialHandoffV2` 레지스트리 | ✅ 완료 |
-| 2 | 맥락 랭킹 — `ContextVector` + Matrix 채점 | ✅ 완료 |
-| 3 | 동적 GenUI — `GenUIResponse` 봉투 + MCP 도구 | ✅ 완료 |
-| 4 | 소비자 렌더러 — KRDS 5-블록 React 컴포넌트 | 🔄 진행 중 |
-| 5 | 통합 & 배포 — Vercel, 실시간 소스 연결 | ⬜ 예정 |
+| `searchBenefits` | `mcp-server` (main) | ⚙️ G-1 MVP — 비식별 프로필 조건으로 혜택 후보 검색 |
+| `getBenefitDetail` | `mcp-server` (main) | ⚙️ G-1 MVP — 혜택의 구조화된 상세 정보 |
+| `buildChecklist` | `mcp-server` (main) | ⚙️ G-1 MVP — 신청 준비 항목 생성 |
+| `getApplicationGuide` | `mcp-server` (main) | ⚙️ G-1 MVP — 단계별 신청 안내 |
+| `getChangeLog` | `mcp-server` (main) | ⚙️ G-1 MVP — 기록된 스냅샷·변경 이벤트 |
+| `render_pretotype_scenario` | pretotype 브랜치 | ✅ exact 태그 하나에 대해 고정 self-contained HTML 아티팩트 반환 |
+| `compose_dynamic_genui_response` · `render_dynamic_genui_template` | pretotype 브랜치 | 🧪 실험적 동적 GenUI 슬라이스 |
+
+서버는 LLM을 포함하지 않습니다. MCP 호스트가 자연어, 후속 질문, 도구 호출을 오케스트레이션할 것으로 기대합니다.
 
 ---
 
@@ -239,9 +272,10 @@ pnpm schemas        # Zod 정의에서 JSON Schema 내보내기
 | 유형 | 방법 |
 |------|------|
 | 버그 | [버그 리포트 템플릿](.github/ISSUE_TEMPLATE/bug_report.md) |
-| 기능 제안 | [기능 요청 템플릿](.github/ISSUE_TEMPLATE/feature_request.md) |
-| 아키텍처 | [RFC 템플릿](.github/ISSUE_TEMPLATE/rfc.md) → 채택된 RFC → `docs/adr/` |
-| 코드/문서 | [CONTRIBUTING.ko.md](CONTRIBUTING.ko.md) 및 [docs/git-workflow.ko.md](docs/git-workflow.ko.md) 참고 |
+| 아키텍처 | [RFC 템플릿](.github/ISSUE_TEMPLATE/rfc.md) |
+| 코드/문서 | [CONTRIBUTING.ko.md](CONTRIBUTING.ko.md) · [docs/git-workflow.ko.md](docs/git-workflow.ko.md) |
+
+이슈 템플릿은 [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE)에서 확인하세요.
 
 ---
 
@@ -251,7 +285,7 @@ pnpm schemas        # Zod 정의에서 JSON Schema 내보내기
 |------|------|------|
 | **A** | 소스 / MCP 어댑터 | 공공 데이터 연동 (gov24, RSS, SRT), MCP 도구 스키마 설계 |
 | **B** | 의사결정 / Matrix / 렌즈 | 의도 파싱, Claude API 오케스트레이션, 가중치 보정 |
-| **C** | 렌더러 / 데모 | GenUI React 컴포넌트 (KRDS), 데모 UI, Vercel/Docker 배포 |
+| **C** | 렌더러 / 데모 | GenUI React 컴포넌트 (KRDS), 데모 UI, 배포 |
 
 ---
 

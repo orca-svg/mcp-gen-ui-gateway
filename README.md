@@ -1,19 +1,22 @@
 <div align="center">
   <h1>MCP Gen UI Gateway</h1>
-  <p><strong>Context-aware public service UI — powered by MCP and a Matrix scoring engine</strong></p>
+  <p><strong>Context-aware public-service GenUI for Claude Desktop — an MCP project in its pretotype phase</strong></p>
 
   <a href="https://github.com/koi2026/mcp-gen-ui-gateway/actions/workflows/ci.yml"><img src="https://github.com/koi2026/mcp-gen-ui-gateway/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></a>
   <a href="https://pnpm.io"><img src="https://img.shields.io/badge/pnpm-9-orange.svg" alt="pnpm"></a>
   <img src="https://img.shields.io/badge/TypeScript-5-blue?logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/status-pretotype-orange" alt="Status: Pretotype">
   <a href="README.ko.md"><img src="https://img.shields.io/badge/README-한국어-green" alt="한국어"></a>
 </div>
 
 ---
 
-**MCP Gen UI Gateway** is an open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that connects multiple Korean public-service data sources, understands user context through a 7-dimension intent vector, ranks information with a Matrix scoring algorithm, and renders a personalized **Generated UI (GenUI)** surface — all inside Claude Desktop without extra infrastructure.
+**MCP Gen UI Gateway** is an open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) project building toward context-aware **Generated UI (GenUI)** for Korean public services — rendered as a Claude HTML Artifact, with no extra infrastructure.
 
-> **Status:** Pretotype phase (June 2026). The current release demonstrates the end-to-end Claude → MCP → GenUI Artifact pipeline with three fixed persona scenarios. The full gateway with live data ranking is in active development on `main`.
+It is **early**. What you can run and see today is a **working pretotype** on the [`pretotype/genui-demo`](https://github.com/koi2026/mcp-gen-ui-gateway/tree/pretotype/genui-demo) branch: three fixed persona scenarios that prove the full `Claude → MCP → GenUI Artifact` path end to end. `main` itself holds an early, unverified **G-1 MVP** of the gateway tools. The context-ranking "Matrix" engine, live public-data sources, and federation are the **[roadmap](#roadmap)** — design intent, not shipped capability.
+
+> **Status — Pretotype phase (2026-06).** The runnable demo lives on the **`pretotype/genui-demo`** branch (Stage 0, fixed artifacts). `main` carries the gateway-track skeleton — `schema` · `core` · `mcp-server` (G-1 MVP, pending verification). Everything past Stage 0 — Matrix scoring, live sources, federation — is design intent. Read [What works today](#what-works-today) and the [Roadmap](#roadmap) before assuming a feature exists.
 
 **[한국어 README →](README.ko.md)**
 
@@ -23,17 +26,33 @@
 
 Korean public services span dozens of portals (Government24, HomeTax, data.go.kr, law.go.kr). A first-time mover — a newlywed, a freelancer, a postdoctoral researcher — faces the same core problem: the same raw information exists, but **what matters and what to do first differs entirely by context**.
 
-MCP Gen UI Gateway solves this with three ideas:
+The gateway is being designed around three ideas:
 
-| Problem | Our approach |
-|---------|-------------|
+| Problem | The intended approach |
+|---------|----------------------|
 | Too many portals, too much cognitive load | A single MCP tool call returns only the components relevant to the user's situation |
-| Rules-based filtering explodes with new personas | A Matrix scoring algorithm $O(i,c) = \sum_f S(i,f) \times W(f,c)$ generalizes across any context |
+| Rules-based filtering explodes with new personas | A Matrix scoring algorithm $O(i,c) = \sum_f S(i,f) \times W(f,c)$ generalizes across any context *(roadmap: G-2)* |
 | GenUI surfaces need trustworthy sourcing | Every rendered block cites the official government API or document it came from |
+
+The pretotype proves the **delivery path and the feel** of that idea with fixed content. The brain that selects content dynamically is deliberately frozen for now — see the [Roadmap](#roadmap).
 
 ---
 
-## How It Works
+## What works today
+
+An honest inventory — what actually runs versus what is still design intent.
+
+- ✅ **Pretotype — Stage 0** *(branch: `pretotype/genui-demo`)* — exact-tag routing (`[신혼부부]` / `[프리랜서]` / `[박사후연구원]`) returns one of three fixed, self-contained HTML artifacts, opened verbatim as a Claude Artifact. This is the regression-frozen baseline. The same branch also carries **additive experimental slices** (handoff-source validation, rule-based context ranking, a `GenUIResponse` envelope + dynamic renderer) — unit-tested exploration, not a shipped gateway.
+- ⚙️ **Gateway G-1 MVP** *(branch: `main`)* — schema-driven MCP tools + Zod contracts + a SQLite store, in `schema` / `core` / `mcp-server`. Implemented but **pending verification and cleanup**.
+- 🚧 **Everything else** — the Matrix scoring engine, live public-data sources, federation, and the React consumer renderer — is **roadmap**, not built yet.
+
+Everything below this line describes **where the project is going**, not what already runs.
+
+---
+
+## Vision: how the full gateway will work
+
+> This is the **target architecture**. The Stage 0 pretotype keeps this ranking engine *frozen* and routes by exact tag instead — proving the end-to-end Artifact path before live orchestration exists.
 
 ```
 User utterance
@@ -47,7 +66,7 @@ User utterance
            │
            ▼
 ┌──────────────────────┐
-│   Matrix Scorer      │  O(i,c) = Σ S(i,f) × W(f,c)
+│   Matrix Scorer      │  O(i,c) = Σ S(i,f) × W(f,c)   ← roadmap (G-2)
 │   (core package)     │  rankComponentCandidates(vector, pool)
 └──────────┬───────────┘
            │  Top-k components selected
@@ -62,7 +81,7 @@ User utterance
    (Government24-style UI)
 ```
 
-### The Matrix Algorithm
+### The Matrix algorithm (target design)
 
 $$O(i,c) = \sum_f S(i,f) \times W(f,c)$$
 
@@ -74,35 +93,22 @@ $$O(i,c) = \sum_f S(i,f) \times W(f,c)$$
 | `S(i, f)` | How strongly intent `i` activates feature `f` |
 | `W(f, c)` | How much feature `f` weights toward component `c` |
 
-**Top-k O(i, c)** determines which components appear — the rest are suppressed.
-
-This eliminates rule explosion: adding a new persona or domain is a new **weight vector**, not hundreds of new IF-THEN rules.
+**Top-k O(i, c)** would determine which components appear — the rest suppressed. The point: adding a new persona or domain becomes a new **weight vector**, not hundreds of new IF-THEN rules. This is the **G-2** milestone on the [Roadmap](#roadmap); it is not wired into the shipped pretotype.
 
 ---
 
-## Key Features
+## Demo: three personas, one prompt
 
-- 🏗 **Schema-driven MCP tools** — Zod-validated I/O contracts with JSON Schema export; the AI host can trust every tool response shape
-- 📐 **Matrix scoring engine** — context-aware component ranking without hardcoded rules; extends to any domain by swapping weight vectors
-- 🪪 **Persona-adaptive UI** — same prompt, three different optimal UIs (newlywed / freelancer / postdoc) through the same 5-block GenUI palette
-- 🏛 **Government design system** — components follow [KRDS](https://uiux.epeople.go.kr) (Korean Government Design System) tokens; visually consistent with gov.kr portals
-- 🔌 **MCP-native deployment** — runs as a local `stdio` MCP server inside Claude Desktop; no Vercel, no public URL required for the pretotype
-- 🔍 **Source transparency** — every GenUI block carries `evidence` and `sources` fields linking back to the official government API or document
-- ✅ **Type-safe end-to-end** — TypeScript 5 + Zod across the monorepo; `pnpm typecheck` catches schema drift before merge
-- 🧪 **Regression-tested artifacts** — Vitest guards all three persona HTML files against per-file drift
+> Runs from the **`pretotype/genui-demo`** branch (see [Quick Start](#quick-start--claude-desktop-pretotype)).
 
----
-
-## Demo: Three Personas, One Prompt
-
-The pretotype shows the core concept: **same situation, different optimal surface**.
+The pretotype shows the core concept with **fixed** content: *same situation, different optimal surface*. The differences below are authored, not yet produced by live ranking — that is exactly what the Roadmap turns dynamic.
 
 **Shared prompt:**
 > `대전 유성구로 이사 왔어요. 이사 관련 행정·세무·우리 동네 데이터를 한 곳에서 확인하고 싶어요.`
 > *(I just moved to Yuseong-gu, Daejeon. I want to see moving-related admin, tax, and local data in one place.)*
 
-| Tag | Persona | GenUI highlights |
-|-----|---------|-----------------|
+| Tag | Persona | Artifact highlights |
+|-----|---------|---------------------|
 | `[신혼부부]` | Newlywed couple | Jeonse loan status, resident registration, child benefit checklist |
 | `[프리랜서]` | Freelancer | Business address update, tax invoice validity, health insurance |
 | `[박사후연구원]` | Postdoctoral researcher | Institutional address change, research grant relocation support |
@@ -110,6 +116,8 @@ The pretotype shows the core concept: **same situation, different optimal surfac
 ---
 
 ## Quick Start — Claude Desktop (Pretotype)
+
+> The runnable pretotype lives on the **`pretotype/genui-demo`** branch, not `main`. The clone command below checks out that branch.
 
 ### Prerequisites
 
@@ -143,7 +151,7 @@ Open `~/Library/Application Support/Claude/claude_desktop_config.json` and add:
 }
 ```
 
-Replace `<ABSOLUTE_REPO_PATH>` with the output of `pwd` from the repo root. Fully quit and reopen Claude Desktop.
+Replace `<ABSOLUTE_REPO_PATH>` with the output of `pwd` from the repo root, then fully quit and reopen Claude Desktop.
 
 ### 3. Add the host instruction
 
@@ -168,38 +176,60 @@ If the tag is missing or ambiguous, ask for exactly one of the three tags.
 [신혼부부] 대전 유성구로 이사 왔어요. 이사 관련 행정·세무·우리 동네 데이터를 한 곳에서 확인하고 싶어요.
 ```
 
-Claude should open a Government24-style HTML Artifact. See the [full pretotype guide](docs/claude-desktop-pretotype-connector.md) for troubleshooting.
+Claude should open a Government24-style HTML Artifact. The cloned `pretotype/genui-demo` branch ships `docs/claude-desktop-pretotype-connector.md` with the full walkthrough and troubleshooting.
+
+---
+
+## Roadmap
+
+The product grows **one capability per version**. Versions 0.5 and 0.6 share the same GenUI renderer — only *who fetches the data* changes:
+
+```text
+0.5   Claude (glue) ─► korean-law-mcp + pretotype-genui ─► GenUI Artifact
+0.6   Claude ─► gateway ─► korean-law-mcp ─► GenUI ─► Artifact
+```
+
+In **0.5** Claude is the host glue calling two sibling connectors; in **0.6** the gateway orchestrates downstream MCP servers itself, so Claude sees a single connector. (The live status board and domain glossary live on the active working branches, alongside the version-ladder docs.)
+
+| Version | New capability | Orchestration | Connectors | Status |
+|---------|----------------|---------------|------------|--------|
+| **0** | Fixed public-service artifacts (3 context tags) | — | pretotype | ✅ shipped · frozen |
+| **0.5** | korean-law `action_plan` 5-step UX as a GenUI Artifact | Claude as glue (host) | korean-law + pretotype-genui (2) | 🔜 next |
+| **0.6** | **Federation** — the gateway becomes an MCP *client* to korean-law-mcp | inside the gateway | gateway (1) | ⬜ planned |
+| **G-1–4** | Ranking Pipeline scoring · multi-source · deploy | gateway | 1 | ⬜ planned |
+
+- **"Frozen"** means the Stage 0 artifacts themselves are immutable (regression baseline); the pretotype *family* still grows additively (0.5, 0.6).
+- **Federation** is what earns the "Gateway" name: one connector reuses downstream MCP servers (korean-law-mcp first) instead of re-implementing their APIs, overcoming the host limitation that sibling connectors cannot call one another.
+- The **Matrix scoring** in the [Vision](#vision-how-the-full-gateway-will-work) is the **G-2** step layered on top of federation — not part of 0.5 or 0.6.
 
 ---
 
 ## Project Structure
 
+`main` is the gateway track. The runnable pretotype (fixed 3-persona artifacts + the Vite React `demo-ui`) lives on the **`pretotype/genui-demo`** branch, not here.
+
 ```
-mcp-gen-ui-gateway/
+mcp-gen-ui-gateway/  (main branch)
 ├── packages/
-│   ├── schema/            Zod schemas — intent types, component palette, MCP I/O contracts
-│   ├── core/              Matrix scoring engine — S(i,f) × W(f,c), component ranking
-│   ├── mcp-server/        MCP Gateway — schema-driven tools, SQLite store, routing
-│   ├── pretotype-server/  Demo pretotype — fixed 3-persona HTML artifacts (throwaway)
-│   └── browser-assist/    Browser interaction tools (gov24 live source integration)
-├── apps/
-│   └── demo-ui/           Vite React — GenUI block renderer + Government24-style UI
+│   ├── schema/         Zod schemas — intent types, component palette, MCP I/O contracts
+│   ├── core/           Tool service + early recommender skeleton (G-1 MVP; Matrix planned for G-2)
+│   ├── mcp-server/     MCP gateway entrypoint — tools + SQLite store (G-1 MVP)
+│   └── browser-assist/ Experimental Playwright boundary, isolated from core
 ├── docs/
-│   ├── adr/               Architecture Decision Records
-│   ├── git-workflow.md    Branch naming, commit conventions, PR rules
-│   └── ...
-├── CONTRIBUTING.md
+│   ├── git-workflow.md · git-workflow.ko.md   Branch naming, commits, PR rules
+│   ├── host-prompts.md                        Host instruction variants
+│   └── prd.md                                 Product requirements
+├── CONTRIBUTING.md · CONTRIBUTING.ko.md
 ├── SECURITY.md
-└── LICENSE                Apache-2.0
+└── LICENSE                                    Apache-2.0
 ```
 
-| Package | Responsibility | Depends on |
-|---------|---------------|------------|
-| `schema` | Zod type definitions and JSON Schema export | — |
-| `core` | Matrix scoring, zero external deps, fully unit-testable | `schema` |
-| `mcp-server` | MCP tool registration, source adapters, SQLite change log | `schema`, `core` |
-| `pretotype-server` | Fixed-route demo *(not merged to `main`)* | `schema` |
-| `demo-ui` | GenUI renderer + KRDS-based Government24 components | `schema` |
+| Package | Responsibility | Maturity |
+|---------|---------------|----------|
+| `schema` | Zod type definitions and JSON Schema export | supporting |
+| `core` | Tool service + early recommender skeleton, zero external deps; Matrix planned for G-2 | G-1 MVP, unverified |
+| `mcp-server` | MCP tool registration, SQLite change log | G-1 MVP, unverified |
+| `browser-assist` | Experimental gov24 live-source boundary | experimental, isolated |
 
 ---
 
@@ -210,38 +240,44 @@ pnpm install        # install all workspace dependencies
 pnpm build          # build all packages
 pnpm test           # run all tests
 pnpm typecheck      # TypeScript type check
-pnpm dev            # demo UI dev server → http://localhost:5173
-pnpm mcp            # run main MCP server (stdio)
-pnpm pretotype:mcp  # run pretotype MCP server (stdio)
-pnpm pretotype:http # run pretotype HTTP server → :8787
+pnpm mcp            # run the gateway MCP server (stdio)
 pnpm schemas        # export JSON Schemas from Zod definitions
 ```
 
+> The `dev` (React `demo-ui`) and `pretotype:*` scripts run from the **`pretotype/genui-demo`** branch, where those packages live.
+
 ---
 
-## Roadmap
+## MCP Tools
 
-| Stage | Name | Status |
-|-------|------|--------|
-| 0 | Pretotype — Claude Desktop demo | ✅ Done |
-| 1 | Source Contract — `OfficialHandoffV2` registry | ✅ Done |
-| 2 | Context Ranking — `ContextVector` + Matrix scorer | ✅ Done |
-| 3 | Dynamic GenUI — `GenUIResponse` envelope + MCP tools | ✅ Done |
-| 4 | Consumer Renderer — KRDS 5-block React components | 🔄 In progress |
-| 5 | Integration & Deploy — Vercel, live source connections | ⬜ Planned |
+On `main`, the `mcp-server` registers the gateway G-1 MVP tools. The pretotype-only tools live on the `pretotype/genui-demo` branch.
+
+| Tool | Where | Status |
+|------|-------|--------|
+| `searchBenefits` | `mcp-server` (main) | ⚙️ G-1 MVP — find benefit candidates from non-identifying profile conditions |
+| `getBenefitDetail` | `mcp-server` (main) | ⚙️ G-1 MVP — structured details for a benefit |
+| `buildChecklist` | `mcp-server` (main) | ⚙️ G-1 MVP — application preparation items |
+| `getApplicationGuide` | `mcp-server` (main) | ⚙️ G-1 MVP — step-by-step application guidance |
+| `getChangeLog` | `mcp-server` (main) | ⚙️ G-1 MVP — recorded snapshot and diff events |
+| `render_pretotype_scenario` | pretotype branch | ✅ returns a fixed self-contained HTML artifact for one exact tag |
+| `compose_dynamic_genui_response` · `render_dynamic_genui_template` | pretotype branch | 🧪 experimental dynamic GenUI slices |
+
+The server does not include an LLM. The MCP host is expected to orchestrate natural language, follow-up questions, and tool calls.
 
 ---
 
 ## Contributing
 
-We welcome bug reports, feature proposals, architecture RFCs, code, and documentation contributions.
+Bug reports, feature proposals, architecture RFCs, code, and documentation contributions are welcome.
 
 | Type | How |
 |------|-----|
 | Bug | [Bug report template](.github/ISSUE_TEMPLATE/bug_report.md) |
-| Feature | [Feature request template](.github/ISSUE_TEMPLATE/feature_request.md) |
-| Architecture | [RFC template](.github/ISSUE_TEMPLATE/rfc.md) → accepted RFCs → `docs/adr/` |
-| Code | See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/git-workflow.md](docs/git-workflow.md) |
+| Architecture | [RFC template](.github/ISSUE_TEMPLATE/rfc.md) |
+| Code | [CONTRIBUTING.md](CONTRIBUTING.md) · [docs/git-workflow.md](docs/git-workflow.md) |
+| 한국어 기여 | [CONTRIBUTING.ko.md](CONTRIBUTING.ko.md) · [docs/git-workflow.ko.md](docs/git-workflow.ko.md) |
+
+See the issue templates under [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE).
 
 ---
 
@@ -251,7 +287,7 @@ We welcome bug reports, feature proposals, architecture RFCs, code, and document
 |------|------|---------------|
 | **A** | Source / MCP Adapter | Public data integration (gov24, RSS, SRT), MCP tool schema design |
 | **B** | Decision / Matrix / Lens | Intent parsing, Claude API orchestration, weight calibration |
-| **C** | Renderer / Demo | GenUI React components (KRDS), demo UI, Vercel/Docker deployment |
+| **C** | Renderer / Demo | GenUI React components (KRDS), demo UI, deployment |
 
 ---
 
