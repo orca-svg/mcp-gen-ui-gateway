@@ -7,7 +7,8 @@ on:
     inputs:
       pr_number:
         description: Pull request number to inspect
-        required: true
+        required: false
+        default: ""
       delete_enabled:
         description: Enable actual branch deletion when all checks pass
         required: false
@@ -16,7 +17,7 @@ on:
 permissions:
   contents: write
   issues: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   branch-retirement:
@@ -48,7 +49,13 @@ jobs:
                 return context.payload.pull_request;
               }
 
-              const prNumber = Number(core.getInput('pr_number'));
+              const rawPrNumber = core.getInput('pr_number');
+              if (!rawPrNumber) {
+                core.notice('workflow_dispatch skipped: provide a pr_number input to inspect a merged PR.');
+                return null;
+              }
+
+              const prNumber = Number(rawPrNumber);
               if (!Number.isInteger(prNumber) || prNumber <= 0) {
                 throw new Error('workflow_dispatch requires a positive pr_number input.');
               }
@@ -157,6 +164,10 @@ jobs:
             }
 
             const pr = await loadPullRequest();
+            if (!pr) {
+              return;
+            }
+
             const headBranch = pr.head.ref;
             const baseBranch = pr.base.ref;
             const sameRepoHead = pr.head.repo?.full_name === pr.base.repo?.full_name;
@@ -191,9 +202,12 @@ jobs:
 
             const deleteEnabled = String(process.env.DELETE_ENABLED || 'false').toLowerCase() === 'true';
             const decisionKind = safeToDelete ? (deleteEnabled ? 'delete' : 'comment-only') : 'hold';
-            const reason = safeToDelete
+            let reason = safeToDelete
               ? `merged into ${baseBranch}, no open stacked PRs, no keep label, branch is temporary`
               : 'branch is not safe for automatic deletion; maintainer review required';
+            if (!exists) {
+              reason = 'branch no longer exists; nothing to delete';
+            }
 
             const decision = {
               branch: headBranch,
@@ -213,7 +227,17 @@ jobs:
               : `Holding branch retirement: ${reason}.`);
 
             const body = `${marker}\n## Branch retirement assistant\n\n${summary}\n\n\`\`\`json\n${JSON.stringify(decision, null, 2)}\n\`\`\``;
-            await upsertComment(pr.number, body);
+            let commentPosted = false;
+            try {
+              await upsertComment(pr.number, body);
+              commentPosted = true;
+            } catch (error) {
+              core.warning(`Could not write branch-retirement PR comment: ${error.message}`);
+            }
+
+            if (decisionKind === 'delete' && !commentPosted) {
+              throw new Error('Refusing to delete branch because the assistant comment could not be written.');
+            }
 
             if (decisionKind === 'delete') {
               await github.rest.git.deleteRef({
